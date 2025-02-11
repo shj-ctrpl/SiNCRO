@@ -1,0 +1,1 @@
+/usr/bin/g++ -g -fsanitize=address -fno-omit-frame-pointer  -fsanitize=address CMakeFiles/SENM.dir/src/main.cpp.o -o SENM 
