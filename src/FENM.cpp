@@ -1,81 +1,60 @@
 #include "../include/FENM.h"
 
+#define pos z, y, x
+#define imesh z, y, x, d, g
 
-#define pos z,y,x
-#define imesh z,y,x,d,g
-
-FENM::FENM(const int nz, const int ny, const int nx, const double hz, const double hy, const double hx, Node &node)
+FENM::FENM(Node &node) : _node(node), flux(_node.Flux()), sFlux(_node.SFlux()), jnet(_node.Jnet()), keff(_node.Keff())
 {
-    _nz = nz + 2;
-    _ny = ny + 2;
-    _nx = nx + 2;
-    _hz = hz + 2;
-    _hy = hy + 2;
-    _hx = hx + 2;
-    _node = node;
+    this->nz = node.nz;
+    this->ny = node.ny;
+    this->nx = node.nx;
+    this->ng = node.ng;
+    this->nd = node.nd;
 
-    jnet = zdouble6(_nz, _ny, _nx, _ndir, _ng, 2);
-    tlcoeff0 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    tlcoeff1 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    tlcoeff2 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
+    tlcoeff0 = zdouble5(nz, ny, nx, nd, ng);
+    tlcoeff1 = zdouble5(nz, ny, nx, nd, ng);
+    tlcoeff2 = zdouble5(nz, ny, nx, nd, ng);
 
-    mu00 = 2.0;
-    mu11 = 2.0 / 3.0;
-    mu22 = 2.0 / 5.0;
-    mu33 = 2.0 / 7.0;
-    mu44 = 2.0 / 9.0;
+    mu_m = zdouble6(nz, ny, nx, nd, ng, ng);
 
-    mu_m = zdouble6(_nz, _ny, _nx, _ndir, _ng, _ng);
+    k51 = zdouble5(nz, ny, nx, nd, ng);
+    k53 = zdouble5(nz, ny, nx, nd, ng);
+    k60 = zdouble5(nz, ny, nx, nd, ng);
+    k62 = zdouble5(nz, ny, nx, nd, ng);
+    k64 = zdouble5(nz, ny, nx, nd, ng);
 
-    k20 = 6.00;
-    k31 = 10.0;
-    k40 = 20.0;
-    k42 = 14.0;
+    T5 = zdouble5(nz, ny, nx, nd, ng);
+    T6 = zdouble5(nz, ny, nx, nd, ng);
 
-    k51 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    k53 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    k60 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    k62 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    k64 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
+    diagD = zdouble5(nz, ny, nx, nd, ng);
+    invD = zdouble5(nz, ny, nx, nd, ng);
 
-    T5 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    T6 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
+    matM = zdouble5(ng, ng, nz, ny, nx);
+    matS = zdouble5(ng, ng, nz, ny, nx);
+    matF = zdouble5(ng, ng, nz, ny, nx);
+    invM = zdouble5(ng, ng, nz, ny, nx);
 
-    diagD = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    invdiagD = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-
-    matM = zdouble5(_nz, _ny, _nx, _ng, _ng);
-    matS = zdouble5(_nz, _ny, _nx, _ng, _ng);
-    matF = zdouble5(_nz, _ny, _nx, _ng, _ng);
-    invmatM = zdouble5(_nz, _ny, _nx, _ng, _ng);
-
-    c0 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    c1 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    c2 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    c3 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    c4 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    c5 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-    c6 = zdouble5(_nz, _ny, _nx, _ndir, _ng);
-
-    avgFlux = zdouble4(_nz, _ny, _nx, _ng);
+    c0 = zdouble5(nz, ny, nx, nd, ng);
+    c1 = zdouble5(nz, ny, nx, nd, ng);
+    c2 = zdouble5(nz, ny, nx, nd, ng);
+    c3 = zdouble5(nz, ny, nx, nd, ng);
+    c4 = zdouble5(nz, ny, nx, nd, ng);
+    c5 = zdouble5(nz, ny, nx, nd, ng);
+    c6 = zdouble5(nz, ny, nx, nd, ng);
 }
 
 FENM::~FENM()
 {
 }
 
-void FENM::Initialize()
-{
-}
-
 void FENM::CalcConst(const int z, const int y, const int x)
 {
-    for (int d = 0; d < _ndir; d++)
+    for (int d = 0; d < nd; d++)
     {
-        for (int g = 0; g < _ng; g++)
+        for (int g = 0; g < ng; g++)
         {
             // Pre-calculated kappa values
-            double kp2 = _node.XsTot(pos, g) * _node.HMesh(pos, d) * _node.HMesh(pos, d) / (4 * _node.XsDfs(pos, g));
+            double kp2 = _node.XsR(pos, g) * _node.HMesh(d) * _node.HMesh(d) / (4 * _node.XsD(pos, g));
             double kp = std::sqrt(kp2);
             double kp3 = kp2 * kp;
             double kp4 = kp2 * kp2;
@@ -96,7 +75,7 @@ void FENM::CalcConst(const int z, const int y, const int x)
             double mg0 = -sinhkp * rkp;
             double mg1 = 3 * rkp2 * (sinhkp - kp * coshkp);
             double mg2 = -5 * rkp3 * (3 * sinhkp - 3 * kp * coshkp + kp2 * sinhkp);
-            double mg3 = 7 * rkp4 * (15 * sinhkp - 15 * kp * coshkp + 6 * kp2 * sinhkp + kp3 * coshkp);
+            double mg3 = 7 * rkp4 * (15 * sinhkp - 15 * kp * coshkp + 6 * kp2 * sinhkp - kp3 * coshkp);
             double mg4 = -9 * rkp5 * (105 * sinhkp - 105 * kp * coshkp + 45 * kp2 * sinhkp - 10 * kp3 * coshkp + kp4 * sinhkp);
 
             // Common nominator and denominators for constants calculation
@@ -113,87 +92,101 @@ void FENM::CalcConst(const int z, const int y, const int x)
             k62(imesh) = 2 * (-3 * coshkp + (3 + kp2) * (sinhkp * rkp) + 7 * mg4) * evenDenom;
             k64(imesh) = 2 * (-5 * kp * (21 + 2 * kp2) * coshkp + (105 + 45 * kp2 + kp4) * sinhkp) * rkp3 * evenDenom;
 
-            diagD(imesh) = 4 * _node.XsDfs(pos, g) / (_node.HMesh(pos, d) * _node.HMesh(pos, d));
-            invdiagD(imesh) = 1.0 / diagD(imesh);
+            diagD(imesh) = 4 * _node.XsD(pos, g) / (_node.HMesh(d) * _node.HMesh(d));
+            invD(imesh) = 1.0 / diagD(imesh);
         }
     }
 }
 
-void FENM::CalcTLCoeffs(const int z, const int y, const int x)
+void FENM::CalcTLCoeffs0(const int z, const int y, const int x)
 {
     // Calculate 0th transverse leakage coefficient, L_x0 = (J_yr-J_yl)/h_y + (J_zr-J_zl)/h_z
     double jAvgZ, jAvgY, jAvgX;
 
-    for (int g = 0; g < _ng; g++)
+    for (int g = 0; g < ng; g++)
     {
-        jAvgZ = jnet(pos, ZDIR, g, RIGHT) - jnet(pos, ZDIR, g, LEFT);
-        jAvgY = jnet(pos, YDIR, g, RIGHT) - jnet(pos, YDIR, g, LEFT);
-        jAvgX = jnet(pos, XDIR, g, RIGHT) - jnet(pos, XDIR, g, LEFT);
+        jAvgZ = jnet(z + 1, y, x, ZDIR, g) - jnet(z, y, x, ZDIR, g);
+        jAvgY = jnet(z, y + 1, x, YDIR, g) - jnet(z, y, x, YDIR, g);
+        jAvgX = jnet(z, y, x + 1, XDIR, g) - jnet(z, y, x, XDIR, g);
         tlcoeff0(pos, ZDIR, g) = jAvgY + jAvgX;
         tlcoeff0(pos, YDIR, g) = jAvgZ + jAvgX;
         tlcoeff0(pos, XDIR, g) = jAvgZ + jAvgY;
     }
-
+}
+void FENM::CalcTLCoeffs12(const int z, const int y, const int x)
+{
     // Calculate the 1st and 2nd transverse leakage
-
-    for (int d = 0; d < _ndir; d++)
+    for (int d = 0; d < nd; d++)
     {
-        for (int g = 0; g < _ng; g++)
+        for (int g = 0; g < ng; g++)
         {
+            bool isLeftBoundary = false;
+            bool isRightBoundary = false;
+
+            int lIdx[3] = {z, y, x};
+            lIdx[d] -= 1;
+
+            int rIdx[3] = {z, y, x};
+            rIdx[d] += 1;
+
+            if ((d == XDIR && x == 0) || (d == YDIR && y == 0) || (d == ZDIR && z == 0))
+            {
+                isLeftBoundary = true;
+            }
+            else if ((d == XDIR && x == nx - 1) || (d == YDIR && y == nx - 1) || (d == ZDIR && z == nz - 1))
+            {
+                isRightBoundary = true;
+            }
+
             double h[3];
             double TL[3];
             double tempDenom;
 
             // Check if LUT is better...
 
-            h[LEFT] = _node.HMesh(z - (d == ZDIR), y - (d == YDIR), x - (d == XDIR), d);
-            h[RIGHT] = _node.HMesh(z + (d == ZDIR), y + (d == YDIR), x + (d == XDIR), d);
-            h[CENTER] = _node.HMesh(pos, d);
+            h[LEFT] = _node.HMesh(d);
+            h[RIGHT] = _node.HMesh(d);
+            h[CENTER] = _node.HMesh(d);
 
             TL[CENTER] = tlcoeff0(imesh);
 
-            if ((x == 0 || y == 0 || z == 0) && _node.Albedo(d, LEFT) < EPS)
+            // Boundary check
+            if (!isLeftBoundary)
+            {
+                TL[LEFT] = tlcoeff0(lIdx[ZDIR], lIdx[YDIR], lIdx[XDIR], d, g);
+            }
+            else if (_node.Albedo(d, LEFT) < EPS)
             {
                 TL[LEFT] = TL[CENTER];
             }
-            else
+
+            if (!isRightBoundary)
             {
-                TL[LEFT] = tlcoeff0(z - (d == ZDIR), y - (d == YDIR), x - (d == XDIR), d, g);
+                TL[RIGHT] = tlcoeff0(rIdx[ZDIR], rIdx[YDIR], rIdx[XDIR], d, g);
+            }
+            else if (_node.Albedo(d, RIGHT) < EPS)
+            {
+                TL[RIGHT] = TL[CENTER];
             }
 
-            TL[RIGHT] = tlcoeff0(z + (d == ZDIR), y + (d == YDIR), x + (d == XDIR), d, g);
-            // Consider albedo conditions
-            if (_node.Albedo(d, LEFT) < EPS)
-            {
-                TL[LEFT] = TL[CENTER];
-            }
-            else
-            {
-            }
-
-            // Left boundary
-            if (h[LEFT] < EPS)
+            if (isLeftBoundary && _node.Albedo(d, LEFT) >= EPS)
             {
                 tlcoeff1 = 0.125 * (5.0 * TL[CENTER] + TL[RIGHT]);
                 tlcoeff2 = 0.125 * (-3.0 * TL[CENTER] + TL[RIGHT]);
             }
-
-            // Right boundary
-            else if (h[RIGHT] < EPS)
+            else if (isRightBoundary && _node.Albedo(d, RIGHT) >= EPS)
             {
                 tlcoeff1 = -0.125 * (5.0 * TL[CENTER] + TL[LEFT]);
                 tlcoeff2 = 0.125 * (-3.0 * TL[CENTER] + TL[LEFT]);
             }
-
-            // Inner nodes
             else
             {
                 tempDenom = 1 / ((h[CENTER] + h[LEFT]) * (h[CENTER] + h[RIGHT]) * (h[CENTER] + h[LEFT] + h[RIGHT]));
                 tlcoeff1(imesh) = 0.5 * tempDenom * h[CENTER] *
-                                          ((TL[CENTER] - TL[LEFT]) * (h[CENTER] + 2 * h[RIGHT]) * (h[CENTER] + h[RIGHT]) + (TL[RIGHT] - TL[CENTER]) * (2 * h[LEFT] + h[CENTER]) * (h[LEFT] + h[CENTER]));
+                                  ((TL[CENTER] - TL[LEFT]) * (h[CENTER] + 2 * h[RIGHT]) * (h[CENTER] + h[RIGHT]) + (TL[RIGHT] - TL[CENTER]) * (2 * h[LEFT] + h[CENTER]) * (h[LEFT] + h[CENTER]));
 
                 tlcoeff2(imesh) = 0.5 * tempDenom * (h[CENTER] * h[CENTER]) *
-                                          ((TL[LEFT] - TL[CENTER]) * (h[CENTER] + h[RIGHT]) + (TL[RIGHT] - TL[CENTER]) * (h[LEFT] + h[CENTER]));
+                                  ((TL[LEFT] - TL[CENTER]) * (h[CENTER] + h[RIGHT]) + (TL[RIGHT] - TL[CENTER]) * (h[LEFT] + h[CENTER]));
             }
         }
     }
@@ -201,56 +194,56 @@ void FENM::CalcTLCoeffs(const int z, const int y, const int x)
 
 void FENM::CalcMatrix(const int z, const int y, const int x)
 {
-    for (int to_g = 0; to_g < _ng; to_g++)
+    for (int to_g = 0; to_g < ng; to_g++)
     {
-        matS(pos, to_g, to_g) = _node.XsTot(pos, to_g);
-        for (int from_g = 0; from_g < _ng; from_g++)
+        matS(to_g, to_g, pos) = _node.XsA(pos, to_g);
+        for (int from_g = 0; from_g < ng; from_g++)
         {
-            matS(pos, from_g, to_g) -= _node.XsSct(pos, from_g, to_g);
-            matF(pos, from_g, to_g) = _node.XsFis(pos, from_g, to_g);
+            matS(from_g, to_g, pos) -= _node.XsS(pos, from_g, to_g);
+            matF(from_g, to_g, pos) = _node.XsF(pos, from_g, to_g);
         }
     }
-    matM = matS - revk * matF;
+    matM = matS - matF / keff;
 
-    double det = matM(pos, 0, 0) * matM(pos, 1, 1) - matM(pos, 1, 0) * matM(pos, 0, 1);
+    double det = matM(0, 0, pos) * matM(1, 1, pos) - matM(1, 0, pos) * matM(0, 1, pos);
     if (std::abs(det) > EPS)
     {
         double rdet = 1 / det;
-        invmatM(pos, 0, 0) = rdet * matM(pos, 1, 1);
-        invmatM(pos, 0, 1) = -rdet * matM(pos, 0, 1);
-        invmatM(pos, 1, 0) = -rdet * matM(pos, 1, 0);
-        invmatM(pos, 1, 1) = rdet * matM(pos, 0, 0);
+        invM(0, 0, pos) = rdet *  matM(1, 1, pos);
+        invM(0, 1, pos) = -rdet * matM(0, 1, pos);
+        invM(1, 0, pos) = -rdet * matM(1, 0, pos);
+        invM(1, 1, pos) = rdet *  matM(0, 0, pos);
     }
     else
     {
-        invmatM(pos, 0, 0) = 0;
-        invmatM(pos, 0, 1) = 0;
-        invmatM(pos, 1, 0) = 0;
-        invmatM(pos, 1, 1) = 0;
+        invM(0, 0, pos) = 0;
+        invM(0, 1, pos) = 0;
+        invM(1, 0, pos) = 0;
+        invM(1, 1, pos) = 0;
     }
 
-    for (int d = 0; d < _ndir; d++)
+    for (int d = 0; d < nd; d++)
     {
         // H = mu_33 * invD * invk_53 * matM
         zdouble2 H(2, 2);
-        H(0, 0) = mu33 * invdiagD(pos, d, 0) * matM(pos, 0, 0) / k53(pos, d, 0);
-        H(0, 1) = mu33 * invdiagD(pos, d, 0) * matM(pos, 0, 1) / k53(pos, d, 0);
-        H(1, 0) = mu33 * invdiagD(pos, d, 1) * matM(pos, 1, 0) / k53(pos, d, 1);
-        H(1, 1) = mu33 * invdiagD(pos, d, 1) * matM(pos, 1, 1) / k53(pos, d, 1);
+        H(0, 0) = mu33 * invD(pos, d, 0) * matM(0, 0, pos) / k53(pos, d, 0);
+        H(0, 1) = mu33 * invD(pos, d, 0) * matM(0, 1, pos) / k53(pos, d, 0);
+        H(1, 0) = mu33 * invD(pos, d, 1) * matM(1, 0, pos) / k53(pos, d, 1);
+        H(1, 1) = mu33 * invD(pos, d, 1) * matM(1, 1, pos) / k53(pos, d, 1);
 
-        // mu_m = (1/mu11) * invmatM * D (k_31 + k_51H)
+        // mu_m = (1/mu11) * invM * D (k_31 + k_51H)
         double rmu11 = 1 / mu11;
-        mu_m(pos, d, 0, 0) = rmu11 * (invmatM(pos, 0, 0) * diagD(pos, d, 0) * (k31 + k51(pos, d, 0) * H(0, 0)) +
-                                          (invmatM(pos, 0, 1) * diagD(pos, d, 1) * k51(pos, d, 1) * H(1, 0)));
+        mu_m(pos, d, 0, 0) = rmu11 * (invM(0, 0, pos) * diagD(pos, d, 0) * (k31 + k51(pos, d, 0) * H(0, 0)) +
+                                      (invM(0, 1, pos) * diagD(pos, d, 1) * k51(pos, d, 1) * H(1, 0)));
 
-        mu_m(pos, d, 0, 1) = rmu11 * (invmatM(pos, 0, 1) * diagD(pos, d, 0) * (k31 + k51(pos, d, 1) * H(1, 1)) +
-                                          (invmatM(pos, 0, 0) * diagD(pos, d, 0) * k51(pos, d, 0) * H(0, 1)));
+        mu_m(pos, d, 0, 1) = rmu11 * (invM(0, 1, pos) * diagD(pos, d, 0) * (k31 + k51(pos, d, 1) * H(1, 1)) +
+                                      (invM(0, 0, pos) * diagD(pos, d, 0) * k51(pos, d, 0) * H(0, 1)));
 
-        mu_m(pos, d, 1, 0) = rmu11 * (invmatM(pos, 1, 0) * diagD(pos, d, 1) * (k31 + k51(pos, d, 0) * H(0, 0)) +
-                                          (invmatM(pos, 1, 1) * diagD(pos, d, 1) * k51(pos, d, 1) * H(1, 0)));
+        mu_m(pos, d, 1, 0) = rmu11 * (invM(1, 0, pos) * diagD(pos, d, 1) * (k31 + k51(pos, d, 0) * H(0, 0)) +
+                                      (invM(1, 1, pos) * diagD(pos, d, 1) * k51(pos, d, 1) * H(1, 0)));
 
-        mu_m(pos, d, 1, 1) = rmu11 * (invmatM(pos, 1, 1) * diagD(pos, d, 1) * (k31 + k51(pos, d, 1) * H(1, 1)) +
-                                          (invmatM(pos, 1, 0) * diagD(pos, d, 0) * k51(pos, d, 0) * H(0, 1)));
+        mu_m(pos, d, 1, 1) = rmu11 * (invM(1, 1, pos) * diagD(pos, d, 1) * (k31 + k51(pos, d, 1) * H(1, 1)) +
+                                      (invM(1, 0, pos) * diagD(pos, d, 0) * k51(pos, d, 0) * H(0, 1)));
     }
 }
 
@@ -268,13 +261,13 @@ void FENM::CalcEvenCoeffs(const int z, const int y, const int x)
     zdouble1 a(2); // l_0 + A*Phi
     zdouble1 b(2);
 
-    for (int d = 0; d <= _ndir; d++)
+    for (int d = 0; d < nd; d++)
     {
         A = matM.slice(pos);
         D(0) = diagD(pos, d, 0);
         D(1) = diagD(pos, d, 1);
-        DI(0) = invdiagD(pos, d, 0);
-        DI(1) = invdiagD(pos, d, 1);
+        DI(0) = invD(pos, d, 0);
+        DI(1) = invD(pos, d, 1);
         K60(0) = k60(pos, d, 0);
         K60(1) = k60(pos, d, 1);
         K62(0) = k62(pos, d, 0);
@@ -290,8 +283,8 @@ void FENM::CalcEvenCoeffs(const int z, const int y, const int x)
         B(0, 1) = T(1, 0) * (15 * A(1, 1) * K60(1) + D(1) * K62(1)) + 15 * A(1, 0) * (K60(0) * T(0, 0) + 20);
         B(1, 1) = 15 * (A(1, 0) * (K60(0) * T(0, 1) + 20) + A(1, 1) * K60(1) * T(1, 1)) + D(1) * (14 + K62(1) * T(1, 1));
 
-        a(0) = A(0, 0) * avgFlux(pos, 0) + A(0, 1) * avgFlux(pos, 1) + tlcoeff0(pos, d, 0);
-        a(1) = A(1, 0) * avgFlux(pos, 0) + A(1, 1) * avgFlux(pos, 1) + tlcoeff0(pos, d, 1);
+        a(0) = A(0, 0) * flux(pos, 0) + A(0, 1) * flux(pos, 1) + tlcoeff0(pos, d, 0);
+        a(1) = A(1, 0) * flux(pos, 0) + A(1, 1) * flux(pos, 1) + tlcoeff0(pos, d, 1);
 
         b(0) = (-0.833333333) * (a(0) * A(0, 0) * DI(0) + a(1) * A(0, 1) * DI(1) - 3 * tlcoeff2(pos, d, 0));
         b(1) = (-0.833333333) * (a(0) * A(1, 0) * DI(0) + a(1) * A(1, 1) * DI(1) - 3 * tlcoeff2(pos, d, 1));
@@ -313,69 +306,6 @@ void FENM::CalcEvenCoeffs(const int z, const int y, const int x)
 
         c2(pos, d, 0) = 0.166666667 * (2 * a(0) - D(0) * (c4(pos, d, 0) * (T(0, 0) + 20) + c4(pos, d, 1) * T(0, 1)));
         c2(pos, d, 1) = 0.166666667 * (2 * a(1) - D(1) * (c4(pos, d, 0) * T(1, 0) + c4(pos, d, 1) * (T(1, 1) + 20)));
-
-        // Old code
-        /*
-        // Temporary 2-by-2 material matrix
-        zdouble2 M(2, 2);
-        M = matM.slice(pos);
-
-        // tmp1 = μ_22 * A * (invK_20)
-        zdouble2 tmp1(2, 2);
-        tmp1 = 2 * mu22 * M / k20;
-
-        // tmp2 = μ_44 * k_60 * (invk_64) * invD * A
-        zdouble2 tmp2(2, 2);
-        tmp2(0, 0) = mu44 * k60(pos, d, 0) * invdiagD(pos, d, 0) * M(0, 0) / k64(pos, d, 0);
-        tmp2(0, 1) = mu44 * k60(pos, d, 0) * invdiagD(pos, d, 0) * M(0, 1) / k64(pos, d, 0);
-        tmp2(1, 0) = mu44 * k60(pos, d, 1) * invdiagD(pos, d, 1) * M(1, 0) / k64(pos, d, 1);
-        tmp2(1, 1) = mu44 * k60(pos, d, 1) * invdiagD(pos, d, 1) * M(1, 1) / k64(pos, d, 1);
-
-        // B = (DK_42 + mu44 * D * K_62 * invK_64 * invD * A + mu22 * A * invK_20 (K_40 + mu44 * K_60 * invK_64 * invD * A))
-        zdouble2 B(2, 2);
-        B(0, 0) = (diagD(pos, d, 0) * k42);
-        B(0, 0) += mu44 * diagD(pos, d, 0) * k62(pos, d, 0) * invdiagD(pos, d, 0) * M(0, 0) / k64(pos, d, 0);
-        B(0, 0) += k40 * tmp1(0, 0) + tmp1(0, 0) * tmp2(0, 0) + tmp1(1, 0) * tmp2(0, 1);
-
-        B(0, 1) = (diagD(pos, d, 0) * k42);
-        B(0, 1) += mu44 * diagD(pos, d, 0) * k62(pos, d, 0) * invdiagD(pos, d, 0) * M(0, 1) / k64(pos, d, 0);
-        B(0, 1) += k40 * tmp1(0, 1) + tmp1(0, 1) * tmp2(0, 0) + tmp1(1, 1) * tmp2(0, 1);
-
-        B(1, 0) = (diagD(pos, d, 1) * k42);
-        B(1, 0) += mu44 * diagD(pos, d, 1) * k62(pos, d, 1) * invdiagD(pos, d, 1) * M(1, 0) / k64(pos, d, 1);
-        B(1, 0) += k40 * tmp1(1, 0) + tmp1(0, 0) * tmp2(1, 0) + tmp1(0, 1) * tmp2(1, 0);
-
-        B(1, 1) = (diagD(pos, d, 1) * k42);
-        B(1, 1) += mu44 * diagD(pos, d, 1) * k62(pos, d, 1) * invdiagD(pos, d, 1) * M(1, 1) / k64(pos, d, 1);
-        B(1, 1) += k40 * tmp1(1, 1) + tmp1(0, 1) * tmp2(1, 0) + tmp1(1, 1) * tmp2(1, 1);
-
-        // tmp3 = l_0 + A * Phibar
-        zdouble1 tmp3(2);
-        tmp3(0) = tlcoeff0(pos, d, 0) + M(0, 0) * avgFlux(pos, 0) + M(1, 0) * avgFlux(pos, 1);
-        tmp3(1) = tlcoeff0(pos, d, 0) + M(0, 1) * avgFlux(pos, 0) + M(1, 1) * avgFlux(pos, 1);
-
-        // b = (-mu22 * L2 - 2 * mu22 * A * invK_20 * invD * (L0 + A * Phi))
-        zdouble1 b(2);
-        b(0) = -mu22 * tlcoeff2(pos, d, 0) - 2 * tmp1(0, 0) * invdiagD(pos, d, 0) * tmp3(0) + tmp1(1, 0) * invdiagD(pos, d, 1) * tmp3(1);
-        b(1) = -mu22 * tlcoeff2(pos, d, 1) - 2 * tmp1(0, 1) * invdiagD(pos, d, 0) * tmp3(0) + tmp1(1, 1) * invdiagD(pos, d, 1) * tmp3(1);
-
-        double rdet = 1 / (B(0, 0) * B(1, 1) - B(0, 1) * B(1, 0));
-        if (abs(rdet) > EPS)
-        {
-            c4(pos, d, 0) = rdet * (B(1, 1) * b(0) - B(1, 0) * b(1));
-            c4(pos, d, 1) = rdet * (B(0, 0) * b(0) - B(0, 1) * b(1));
-        }
-        else
-        {
-            c4(pos, d, 0) = 0;
-            c4(pos, d, 1) = 0;
-        }
-
-        c6(pos, d, 0) = tmp2(0, 0) * c4(pos, d, 0) / k60(pos, d, 0) + tmp2(1, 0) * c4(pos, d, 1) / k60(pos, d, 1);
-        c6(pos, d, 1) = tmp2(0, 1) * c4(pos, d, 0) / k60(pos, d, 0) + tmp2(1, 1) * c4(pos, d, 1) / k60(pos, d, 1);
-        c2(pos, d, 0) = 2 * invdiagD() - ((k40 + tmp2(0, 0)) * c4(pos, d, 0) + (k40 + tmp2(1, 0)) * c4(pos, d, 1));
-        c2(pos, d, 1) = 0;
-        */
     }
 }
 
@@ -400,7 +330,7 @@ void FENM::CalcOddCoeffsOneNode(const int z, const int y, const int x, const int
     // a22 = mu_33 * A
     a22 = mu33 * matM.slice(pos);
 
-    for (int g = 0; g < _ng; g++)
+    for (int g = 0; g < ng; g++)
     {
         // a12 = -DK_31
         a12(g) = -k31 * diagD(imesh);
@@ -412,20 +342,20 @@ void FENM::CalcOddCoeffsOneNode(const int z, const int y, const int x, const int
         a23(g) = -k53(imesh) * diagD(imesh);
 
         // a31 = Dtilde_m + albedo
-        a31(g) = 0.5 * _node.HMesh(pos, d) * diagD(imesh) + _node.Albedo(d, face);
+        a31(g) = 0.5 * _node.HMesh(d) * diagD(imesh) + _node.Albedo(d, face);
 
         // a32 = 6 * Dtilde_m + albedo
-        a32(g) = 3 * _node.HMesh(pos, d) * diagD(imesh) + _node.Albedo(d, face);
+        a32(g) = 3 * _node.HMesh(d) * diagD(imesh) + _node.Albedo(d, face);
 
         // a33 = Dtilde_m * T5m + albedo
-        a33(g) = T5(imesh) * _node.HMesh(pos, d) * diagD(imesh) + _node.Albedo(d, face);
+        a33(g) = T5(imesh) * _node.HMesh(d) * diagD(imesh) + _node.Albedo(d, face);
 
         // b1 = -m011 * l_0
         b1(g) = -mu11 * tlcoeff0(imesh);
 
         // b2 = D * (3 * c_2 + 10 * c_4 + T6 * c_6) + albedo * (flux + c_2 + c_4 + c_6)
         b2(g) = diagD(imesh) * (3 * c2(imesh) + 10 * c4(imesh) + T6(imesh) * c6(imesh));
-        b2(g) += _node.Albedo(d, face) * (avgFlux(pos, g) + c2(imesh) + c4(imesh) + c6(imesh));
+        b2(g) += _node.Albedo(d, face) * (flux(pos, g) + c2(imesh) + c4(imesh) + c6(imesh));
     }
 
     zdouble2 A(2, 2);
@@ -472,11 +402,11 @@ void FENM::CalcOddCoeffsOneNode(const int z, const int y, const int x, const int
 
     int sign = 0;
 
-    for (int g = 0; g < _ng; g++)
+    for (int g = 0; g < ng; g++)
     {
-        jnet(pos, d, g, face) = _node.HMesh(pos, d) * 0.5 * D(g, g) *
-                                    (c1(imesh) + 6 * c3(imesh) + T5(imesh) * c5(imesh) + sign * (3 * c2(imesh) + 10 * c4(imesh) + T6(imesh) * c6(imesh)));
-        surfFlux(pos, d, g, face) = avgFlux(pos, g) + sign * (c1(imesh) + c3(imesh) + c5(imesh)) + c2(imesh) + c4(imesh) + c6(imesh);
+        jnet(z + (d == ZDIR), y + (d == YDIR), x + (d == XDIR), d, g) = _node.HMesh(d) * 0.5 * D(g, g) *
+                                                                        (c1(imesh) + 6 * c3(imesh) + T5(imesh) * c5(imesh) + sign * (3 * c2(imesh) + 10 * c4(imesh) + T6(imesh) * c6(imesh)));
+        sFlux(z + (d == ZDIR), y + (d == YDIR), x + (d == XDIR), d, g) = flux(pos, g) + sign * (c1(imesh) + c3(imesh) + c5(imesh)) + c2(imesh) + c4(imesh) + c6(imesh);
     }
 }
 
@@ -509,28 +439,28 @@ void FENM::CalcOddCoeffsTwoNode(const int z, const int y, const int x)
     zdouble2 M(2, 2);
     zdouble1 vg(2);
 
-    for (int d = 0; d <= _ndir; d++)
+    for (int d = 0; d < nd; d++)
     {
         int zr = z + (d == ZDIR);
         int yr = y + (d == YDIR);
         int xr = x + (d == XDIR);
 
         Al = matM.slice(pos);
-        Ali = invmatM.slice(pos);
+        Ali = invM.slice(pos);
         Ar = matM.slice(zr, yr, xr);
-        Ari = invmatM.slice(zr, yr, xr);
+        Ari = invM.slice(zr, yr, xr);
 
         Dl(0) = diagD(pos, d, 0);
         Dl(1) = diagD(pos, d, 1);
-        Dtl = 0.5 * _node.HMesh(pos, d) * Dl;
+        Dtl = 0.5 * _node.HMesh(d) * Dl;
         Dr(0) = diagD(zr, yr, xr, d, 0);
         Dr(1) = diagD(zr, yr, xr, d, 1);
-        Dtr = 0.5 * _node.HMesh(zr, yr, xr, d) * Dr;
+        Dtr = 0.5 * _node.HMesh(d) * Dr;
 
-        bp(0) = avgFlux(pos, 0) + c2(pos, d, 0) + c4(pos, d, 0) + c6(pos, d, 0);
-        bp(1) = avgFlux(pos, 1) + c2(pos, d, 1) + c4(pos, d, 1) + c6(pos, d, 1);
-        bp(0) += avgFlux(zr, yr, xr, 0) + c2(zr, yr, xr, d, 0) + c4(zr, yr, xr, d, 0) + c6(zr, yr, xr, d, 0);
-        bp(1) += avgFlux(zr, yr, xr, 1) + c2(zr, yr, xr, d, 1) + c4(zr, yr, xr, d, 1) + c6(zr, yr, xr, d, 1);
+        bp(0) = flux(pos, 0) + c2(pos, d, 0) + c4(pos, d, 0) + c6(pos, d, 0);
+        bp(1) = flux(pos, 1) + c2(pos, d, 1) + c4(pos, d, 1) + c6(pos, d, 1);
+        bp(0) += flux(zr, yr, xr, 0) + c2(zr, yr, xr, d, 0) + c4(zr, yr, xr, d, 0) + c6(zr, yr, xr, d, 0);
+        bp(1) += flux(zr, yr, xr, 1) + c2(zr, yr, xr, d, 1) + c4(zr, yr, xr, d, 1) + c6(zr, yr, xr, d, 1);
 
         bj(0) = Dtl(0) * (3 * c2(pos, d, 0) + 10 * c2(pos, d, 0) + T6(pos, d, 0) * c6(pos, d, 0));
         bj(1) = Dtl(1) * (3 * c2(pos, d, 1) + 10 * c2(pos, d, 1) + T6(pos, d, 1) * c6(pos, d, 1));
@@ -609,10 +539,107 @@ void FENM::CalcOddCoeffsTwoNode(const int z, const int y, const int x)
         c1(pos, d, 1) += mur(1, 0) * c3(pos, d, 0) + mur(1, 1) * c3(pos, d, 1);
 
         int sign = 1;
-        for (int g = 0; g < _ng; g++)
+        for (int g = 0; g < ng; g++)
         {
-            jnet(pos, d, g, RIGHT) = _node.HMesh(pos, d) * 0.5 * Dr(0) * (-1 * c1(pos, d, 0) + 3 * c2(pos, d, 0) - 6 * c3(pos, d, 0) + 10 * c4(pos, d, 0) - T5(pos, d, 0) * c5(pos, d, 0) + T6(pos, d, 0) * c6(pos, d, 0));
-            surfFlux(pos, d, g, RIGHT) = avgFlux(pos, g) - (c1(imesh) + c3(imesh) + c3(imesh)) + c2(imesh) + c4(imesh) + c6(imesh);
+            jnet(z + (d == ZDIR), y + (d == YDIR), x + (d == XDIR), d, g) = _node.HMesh(d) * 0.5 * Dr(0) * (-1 * c1(pos, d, 0) + 3 * c2(pos, d, 0) - 6 * c3(pos, d, 0) + 10 * c4(pos, d, 0) - T5(pos, d, 0) * c5(pos, d, 0) + T6(pos, d, 0) * c6(pos, d, 0));
+            sFlux(z + (d == ZDIR), y + (d == YDIR), x + (d == XDIR), d, g) = flux(pos, g) - (c1(imesh) + c3(imesh) + c3(imesh)) + c2(imesh) + c4(imesh) + c6(imesh);
+        }
+    }
+}
+
+void FENM::Drive()
+{
+
+    for (int z = 0; z < nz; z++)
+    {
+        for (int y = 0; y < ny; y++)
+        {
+            for (int x = 0; x < nx; x++)
+            {
+                CalcConst(z, y, x);
+            }
+        }
+    }
+
+    for (int z = 0; z < nz; z++)
+    {
+        for (int y = 0; y < ny; y++)
+        {
+            for (int x = 0; x < nx; x++)
+            {
+                CalcTLCoeffs0(z, y, x);
+            }
+        }
+    }
+
+    for (int z = 0; z < nz; z++)
+    {
+        for (int y = 0; y < ny; y++)
+        {
+            for (int x = 0; x < nx; x++)
+            {
+                CalcTLCoeffs12(z, y, x);
+            }
+        }
+    }
+
+    for (int z = 0; z < nz; z++)
+    {
+        for (int y = 0; y < ny; y++)
+        {
+            for (int x = 0; x < nx; x++)
+            {
+                CalcMatrix(z, y, x);
+            }
+        }
+    }
+
+    for (int z = 0; z < nz; z++)
+    {
+        for (int y = 0; y < ny; y++)
+        {
+            for (int x = 0; x < nx; x++)
+            {
+                CalcEvenCoeffs(z, y, x);
+            }
+        }
+    }
+
+    for (int z = 0; z < nz; z++)
+    {
+        for (int y = 0; y < ny; y++)
+        {
+            CalcOddCoeffsOneNode(z, y, 0, XDIR, LEFT);
+            CalcOddCoeffsOneNode(z, y, nx - 1, XDIR, RIGHT);
+        }
+    }
+
+    for (int z = 0; z < nz; z++)
+    {
+        for (int x = 0; x < nx; x++)
+        {
+            CalcOddCoeffsOneNode(z, 0, x, YDIR, LEFT);
+            CalcOddCoeffsOneNode(z, ny - 1, x, YDIR, RIGHT);
+        }
+    }
+
+    for (int y = 0; y < ny; y++)
+    {
+        for (int x = 0; x < nx; x++)
+        {
+            CalcOddCoeffsOneNode(0, y, x, ZDIR, LEFT);
+            CalcOddCoeffsOneNode(nz - 1, y, x, ZDIR, RIGHT);
+        }
+    }
+
+    for (int z = 1; z < nz - 1; z++)
+    {
+        for (int y = 1; y < ny - 1; y++)
+        {
+            for (int x = 1; x < nx - 1; x++)
+            {
+                CalcOddCoeffsTwoNode(z, y, x);
+            }
         }
     }
 }

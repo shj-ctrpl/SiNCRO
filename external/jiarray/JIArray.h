@@ -725,28 +725,6 @@ namespace dnegri::jiarray
             return out;
         }
 
-
-        inline JIArray<T, 2> operator^(const JIArray<T, 2>& array)
-        {
-            JIARRAY_CHECK_SIZE(nn, array.nn);
-            JIArray<T, 2> out(this->rankSize[0], array->rankSize[1])
-
-            if (this.rankSize[1] != array.rankSize[0]) {
-                throw std::runtime_error("Matrix dimensions mismatch.");
-            }
-
-            for (int i = 0; i < A.rankSize[0]; ++i) {
-                for (int j = 0; j < array.rankSize[1]; ++j) {
-                    T sum = T{};
-                    for (int k = 0; k < A.rankSize[1]; ++k) {
-                        sum += A.mm[i * A.rankSize[1] + k] * array.mm[k * array.rankSize[1] + j];
-                    }
-                    out.mm[i * out.rankSize[1] + j] = sum;
-                }
-            }
-            return out;
-        }
-
         inline double sqsum() const
         {
             double result = 0;

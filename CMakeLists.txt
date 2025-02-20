@@ -11,7 +11,8 @@ include_directories(
 
 set(SOURCES
     src/main.cpp
-    # src/FENM.cpp
+    src/CMFD.cpp
+    src/FENM.cpp
 )
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer")
