@@ -36,6 +36,8 @@ public:
     /// @brief Mesh size of the core [dir]
     zdouble1 _hMesh;
 
+    zint1 _nMesh;
+
     /// @brief Albedo of boundary [dir, face]
     zdouble2 albedo;
 
@@ -97,6 +99,9 @@ public:
 
         _hMesh = zdouble1(3);
         _hMesh = {hz, hy, hx};
+        _nMesh = zint1(3);
+        _nMesh = {nz, ny, nx};
+
         vol = hx * hy * hz;
     }
 
@@ -154,7 +159,7 @@ public:
                         }
 
                         for (int to_g = 0; to_g < ng; to_g++)
-                        {  
+                        {
                             xsF(z, y, x, from_g, to_g) = mat.xsFis[ng * to_g + from_g];
                             xsS(z, y, x, from_g, to_g) = mat.xsSct[ng * to_g + from_g];
                             xsR(z, y, x, from_g) += xsS(z, y, x, from_g, to_g);
@@ -294,5 +299,39 @@ public:
     double &Keff()
     {
         return keff;
+    }
+
+    void printFlux(int g)
+    {
+        for (int z = 0; z < nz; z++)
+        {
+            std::cout << "Z level: " << z << std::endl;
+            for (int y = 0; y < ny; y++)
+            {
+                for (int x = 0; x < nx; x++)
+                {
+                    std::cout << flux(z, y, x, g) << "  ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    void printJnet(int g, int d)
+    {
+        for (int z = 0; z <= nz; z++)
+        {
+            std::cout << "Z level: " << z << std::endl;
+            for (int y = 0; y <= ny; y++)
+            {
+                for (int x = 0; x <= nx; x++)
+                {
+                    std::cout << jnet(z, y, x, d, g) << "  ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
     }
 };

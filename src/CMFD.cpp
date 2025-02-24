@@ -385,6 +385,40 @@ void CMFD::UpdateJnet()
             }
         }
     }
+
+    if (Samesizemode)
+    {
+        for (int z = 0; z < nz; z++)
+        {
+            for (int y = 0; y < ny; y++)
+            {
+                for (int x = 0; x < nx; x++)
+                {
+                    for (int g = 0; g < ng; g++)
+                    {
+                        fine_Flux(z, y, x, g) = coarse_Flux(z, y, x, g);
+                    }
+                }
+            }
+        }
+
+        for (int z = 0; z <= nz; z++)
+        {
+            for (int y = 0; y <= ny; y++)
+            {
+                for (int x = 0; x <= nx; x++)
+                {
+                    for (int d = 0; d < nd; d++)
+                    {
+                        for (int g = 0; g < ng; g++)
+                        {
+                            fine_Jnet(z, y, x, d, g) = coarse_Jnet(z, y, x, d, g);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void CMFD::UpdateDhat()
@@ -444,6 +478,68 @@ void CMFD::UpdateDhat()
                 }
                 jnet_fdm = coarse_Dt(z, y, nx, XDIR, g) * coarse_Flux(z, y, nx - 1, g);
                 coarse_Dh(z, y, nx, XDIR, g) = (jnet_fdm - coarse_Jnet(z, y, nx, XDIR, g)) / coarse_Flux(z, y, nx - 1, g);
+            }
+        }
+    }
+}
+
+void CMFD::UpdateDhatNodal()
+{
+    if (FDMmode)
+    {
+        return;
+    }
+
+    double jnet_fdm;
+
+    for (int g = 0; g < ng; g++)
+    {
+        for (int x = 0; x < nx; x++)
+        {
+            for (int y = 0; y < ny; y++)
+            {
+                jnet_fdm = -coarse_Dt(0, y, x, ZDIR, g) * coarse_Flux(0, y, x, g);
+                coarse_Dh(0, y, x, ZDIR, g) = (jnet_fdm - fine_Jnet(0, y, x, ZDIR, g)) / coarse_Flux(0, y, x, g);
+                for (int z = 1; z < nz; z++)
+                {
+                    jnet_fdm = -coarse_Dt(z, y, x, ZDIR, g) * (coarse_Flux(z, y, x, g) - coarse_Flux(z - 1, y, x, g));
+                    coarse_Dh(z, y, x, ZDIR, g) = (jnet_fdm - fine_Jnet(z, y, x, ZDIR, g)) / (coarse_Flux(z, y, x, g) + coarse_Flux(z - 1, y, x, g));
+                }
+                jnet_fdm = coarse_Dt(nz, y, x, ZDIR, g) * coarse_Flux(nz - 1, y, x, g);
+                coarse_Dh(nz, y, x, ZDIR, g) = (jnet_fdm - fine_Jnet(nz, y, x, ZDIR, g)) / coarse_Flux(nz - 1, y, x, g);
+            }
+        }
+
+        for (int z = 0; z < nz; z++)
+        {
+            for (int x = 0; x < nx; x++)
+            {
+                jnet_fdm = -coarse_Dt(z, 0, x, YDIR, g) * coarse_Flux(z, 0, x, g);
+                coarse_Dh(z, 0, x, YDIR, g) = (jnet_fdm - fine_Jnet(z, 0, x, YDIR, g)) / coarse_Flux(z, 0, x, g);
+                for (int y = 1; y < ny; y++)
+                {
+
+                    jnet_fdm = -coarse_Dt(z, y, x, YDIR, g) * (coarse_Flux(z, y, x, g) - coarse_Flux(z, y - 1, x, g));
+                    coarse_Dh(z, y, x, YDIR, g) = (jnet_fdm - fine_Jnet(z, y, x, YDIR, g)) / (coarse_Flux(z, y, x, g) + coarse_Flux(z, y - 1, x, g));
+                }
+                jnet_fdm = coarse_Dt(z, ny, x, YDIR, g) * coarse_Flux(z, ny - 1, x, g);
+                coarse_Dh(z, ny, x, YDIR, g) = (jnet_fdm - fine_Jnet(z, ny, x, YDIR, g)) / coarse_Flux(z, ny - 1, x, g);
+            }
+        }
+
+        for (int z = 0; z < nz; z++)
+        {
+            for (int y = 0; y < ny; y++)
+            {
+                jnet_fdm = -coarse_Dt(z, y, 0, XDIR, g) * coarse_Flux(z, y, 0, g);
+                coarse_Dh(z, y, 0, XDIR, g) = (jnet_fdm - fine_Jnet(z, y, 0, XDIR, g)) / coarse_Flux(z, y, 0, g);
+                for (int x = 1; x < nx; x++)
+                {
+                    jnet_fdm = -coarse_Dt(z, y, x, XDIR, g) * (coarse_Flux(z, y, x, g) - coarse_Flux(z, y, x - 1, g));
+                    coarse_Dh(z, y, x, XDIR, g) = (jnet_fdm - fine_Jnet(z, y, x, XDIR, g)) / (coarse_Flux(z, y, x, g) + coarse_Flux(z, y, x - 1, g));
+                }
+                jnet_fdm = coarse_Dt(z, y, nx, XDIR, g) * coarse_Flux(z, y, nx - 1, g);
+                coarse_Dh(z, y, nx, XDIR, g) = (jnet_fdm - fine_Jnet(z, y, nx, XDIR, g)) / coarse_Flux(z, y, nx - 1, g);
             }
         }
     }

@@ -93,25 +93,10 @@ public:
     void UpdateKeff(bool print);
     void UpdateJnet();
     void UpdateDhat();
+    void UpdateDhatNodal();
     void Redistribute();
-
-    void showKeff()
+    void printDhat(int g, int dir)
     {
-        if (FDMmode)
-        {
-            std::cout << "FDMmode, oldSum: " << sumFluxOld << " newSum: " << sumFluxNew << "    ";
-            std::cout << "FDM keff: " << keff << std::endl;
-        }
-        else
-        {
-            std::cout << "CMFDmode, oldSum: " << sumFluxOld << " newSum: " << sumFluxNew << "    ";
-            std::cout << "CMFD keff: " << keff << std::endl;
-        }
-    }
-
-    void ShowXS(int g, bool printxs)
-    {
-        std::cout << "nz: " << nz << "ny: " << ny << "nx: " << nx << std::endl;
         for (int z = 0; z < nz; z++)
         {
             std::cout << "z = " << z << std::endl;
@@ -119,26 +104,11 @@ public:
             {
                 for (int x = 0; x < nx; x++)
                 {
-                    std::cout << coarse_Flux(z, y, x, g) << " ";
+                    std::cout << coarse_Dh(z, y, x, dir, g) << " ";
                 }
                 std::cout << std::endl;
             }
-        }
-
-        if (printxs)
-        {
-            for (int z = 0; z < nz; z++)
-            {
-                std::cout << "z = " << z << std::endl;
-                for (int y = 0; y < ny; y++)
-                {
-                    for (int x = 0; x < nx; x++)
-                    {
-                        std::cout << coarse_S(z, y, x, 0, 1) << " ";
-                    }
-                    std::cout << std::endl;
-                }
-            }
+            std::cout << std::endl;
         }
     }
 
